@@ -5,12 +5,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeButton = document.getElementById('callback4ringcx-close');
     const form = document.getElementById('callback4ringcx-form');
     const status = document.getElementById('callback4ringcx-status');
-    const agentSelect = document.getElementById('callback4ringcx-agent-id');
-    const agentNameInput = document.getElementById('callback4ringcx-agent-name');
+    const targetSelect = document.getElementById('callback4ringcx-target-id');
+    const targetNameInput = document.getElementById('callback4ringcx-target-name');
+    const targetTypeSelect = document.getElementById('callback4ringcx-target-type');
+    const targetLabel = document.getElementById('callback4ringcx-target-label');
 
     if (!widget || !trigger || !modal || !closeButton || !form || !status || !window.callback4ringcxData) {
         return;
     }
+
+    const resetTargetSelect = (placeholder = 'Bitte auswählen') => {
+        if (!targetSelect) {
+            return;
+        }
+
+        targetSelect.innerHTML = `<option value="">${placeholder}</option>`;
+
+        if (targetNameInput) {
+            targetNameInput.value = '';
+        }
+    };
+
+    const updateTargetUI = () => {
+        if (!targetTypeSelect) {
+            return;
+        }
+
+        if (targetTypeSelect.value === 'group') {
+            if (targetLabel) {
+                targetLabel.textContent = 'Gewünschte Campaign';
+            }
+
+            resetTargetSelect('Bitte Campaign auswählen');
+            return;
+        }
+
+        if (targetLabel) {
+            targetLabel.textContent = 'Gewünschter Ansprechpartner';
+        }
+
+        resetTargetSelect('Bitte Ansprechpartner auswählen');
+    };
 
     const setStatus = (message, type = '') => {
         status.textContent = message || '';
@@ -32,11 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const loadAgents = async () => {
-        if (!agentSelect) {
+        if (!targetSelect) {
             return;
         }
 
-        agentSelect.innerHTML = '<option value="">Agenten werden geladen...</option>';
+        targetSelect.innerHTML = '<option value="">Agenten werden geladen...</option>';
 
         const formData = new FormData();
         formData.append('action', callback4ringcxData.loadAgentsAction);
@@ -52,28 +87,44 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
 
             if (!result.success || !result.data || !Array.isArray(result.data.agents)) {
-                agentSelect.innerHTML = '<option value="">Keine Agenten verfügbar</option>';
+                targetSelect.innerHTML = '<option value="">Keine Agenten verfügbar</option>';
                 return;
             }
 
-            agentSelect.innerHTML = '<option value="">Bitte auswählen</option>';
+            targetSelect.innerHTML = '<option value="">Bitte auswählen</option>';
 
             result.data.agents.forEach((agent) => {
                 const option = document.createElement('option');
                 option.value = agent.id;
                 option.textContent = agent.name;
-                option.dataset.agentName = agent.name;
-                agentSelect.appendChild(option);
+                option.dataset.targetName = agent.name;
+                targetSelect.appendChild(option);
             });
         } catch (error) {
-            agentSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+            targetSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
         }
     };
 
+    if (targetTypeSelect) {
+        targetTypeSelect.addEventListener('change', () => {
+            updateTargetUI();
+
+            if (targetTypeSelect.value === 'agent') {
+                loadAgents();
+            }
+        });
+    }
+
     trigger.addEventListener('click', () => {
         openModal();
+        updateTargetUI();
 
-        if (agentSelect && agentSelect.options.length <= 1) {
+        if (
+            targetTypeSelect &&
+            targetTypeSelect.value === 'agent' &&
+            targetSelect &&
+            targetSelect.options.length <= 1
+        ) {
             loadAgents();
         }
     });
@@ -94,10 +145,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    if (agentSelect && agentNameInput) {
-        agentSelect.addEventListener('change', () => {
-            const selectedOption = agentSelect.options[agentSelect.selectedIndex];
-            agentNameInput.value = selectedOption ? (selectedOption.dataset.agentName || '') : '';
+    if (targetSelect && targetNameInput) {
+        targetSelect.addEventListener('change', () => {
+            const selectedOption = targetSelect.options[targetSelect.selectedIndex];
+            targetNameInput.value = selectedOption ? (selectedOption.dataset.targetName || '') : '';
         });
     }
 
@@ -107,37 +158,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData(form);
         formData.append('action', callback4ringcxData.submitAction);
-                          formData.append('nonce', callback4ringcxData.nonce);
+        formData.append('nonce', callback4ringcxData.nonce);
 
-                          try {
-                              const response = await fetch(callback4ringcxData.ajaxUrl, {
-                                  method: 'POST',
-                                  body: formData,
-                                  credentials: 'same-origin'
-                              });
+        try {
+            const response = await fetch(callback4ringcxData.ajaxUrl, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
 
-                              const result = await response.json();
+            const result = await response.json();
 
-                              if (!result.success) {
-                                  const message = result.data && result.data.message
-                                  ? result.data.message
-                                  : 'Die Anfrage konnte nicht verarbeitet werden.';
-                                  setStatus(message, 'error');
-                                  return;
-                              }
+            if (!result.success) {
+                const message = result.data && result.data.message
+                    ? result.data.message
+                    : 'Die Anfrage konnte nicht verarbeitet werden.';
+                setStatus(message, 'error');
+                return;
+            }
 
-                              const message = result.data && result.data.message
-                              ? result.data.message
-                              : callback4ringcxData.successMessage;
+            const message = result.data && result.data.message
+                ? result.data.message
+                : callback4ringcxData.successMessage;
 
-                              setStatus(message, 'success');
-                              form.reset();
+            setStatus(message, 'success');
+            form.reset();
 
-                          if (agentNameInput) {
-                              agentNameInput.value = '';
-                          }
-                          } catch (error) {
-                              setStatus('Es ist ein technischer Fehler aufgetreten.', 'error');
-                          }
+            if (targetNameInput) {
+                targetNameInput.value = '';
+            }
+
+            if (targetTypeSelect) {
+                updateTargetUI();
+            }
+        } catch (error) {
+            setStatus('Es ist ein technischer Fehler aufgetreten.', 'error');
+        }
     });
 });
