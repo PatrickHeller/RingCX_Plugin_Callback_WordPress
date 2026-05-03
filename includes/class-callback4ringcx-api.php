@@ -570,6 +570,196 @@ public function refresh_ringcx_access_token( $refresh_token ) {
         );
     }
 
+	/**
+ * Create callback lead in a specific campaign for group callback flow.
+ *
+ * @param array $lead_data Lead input data.
+ * @param int   $campaign_id Selected campaign ID.
+ * @return array|WP_Error
+ */
+public function create_lead_for_campaign( $lead_data, $campaign_id ) {
+	$settings = $this->settings->get_settings();
+	$auth     = $this->get_valid_ringcx_token();
+
+	if ( is_wp_error( $auth ) ) {
+		return $auth;
+	}
+
+	$ringcx_access_token = $auth['accessToken'];
+	$ringcx_account_id   = ! empty( $auth['accountId'] ) ? $auth['accountId'] : $settings['account_id'];
+	$campaign_id         = (int) $campaign_id;
+
+	if ( empty( $ringcx_account_id ) || empty( $campaign_id ) ) {
+		return new WP_Error( 'config_incomplete', 'Campaign-Callback ist nicht vollständig konfiguriert.' );
+	}
+
+	$extern_id = 'wp-callback-' . time() . '-' . wp_rand( 1000, 9999 );
+
+	$payload = array(
+		'description'               => $settings['description'],
+		'dialPriority'              => $settings['dial_priority'],
+		'duplicateHandling'         => $settings['duplicate_handling'],
+		'timeZoneOption'            => $settings['timezone_option'],
+		'phoneNumbersI18nEnabled'   => '1' === $settings['phone_numbers_i18n_enabled'],
+		'internationalNumberFormat' => '1' === $settings['international_number_format'],
+		'numberOriginCountry'       => 'GER',
+		'uploadLeads'               => array(
+			array(
+				'externId'  => $extern_id,
+				'auxData1'  => $lead_data['note'],
+				'firstName' => $lead_data['first_name'],
+				'lastName'  => $lead_data['last_name'],
+				'leadPhone' => $lead_data['phone'],
+			),
+		),
+	);
+
+	$endpoint = trailingslashit( rtrim( $settings['base_url'], '/' ) ) .
+		'admin/accounts/' . rawurlencode( $ringcx_account_id ) .
+		'/campaigns/' . rawurlencode( $campaign_id ) .
+		'/leadLoader/direct';
+
+	callback4ringcx_log( '--- Sende Group Lead an RingCX ---' );
+	callback4ringcx_log( 'Endpoint URL: ' . $endpoint );
+	callback4ringcx_log( 'Gesendete Payload:' );
+	callback4ringcx_log( $payload );
+
+	$response = wp_remote_post(
+		$endpoint,
+		array(
+			'timeout' => 20,
+			'headers' => array(
+				'Authorization' => 'Bearer ' . trim( $ringcx_access_token ),
+				'Content-Type'  => 'application/json',
+				'Accept'        => 'application/json',
+			),
+			'body'    => wp_json_encode( $payload ),
+		)
+	);
+
+	if ( is_wp_error( $response ) ) {
+		callback4ringcx_log( 'Group Lead WP-Error: ' . $response->get_error_message() );
+		return new WP_Error( 'lead_request_failed', 'API-Verbindung zu RingCX fehlgeschlagen.' );
+	}
+
+	$status_code = wp_remote_retrieve_response_code( $response );
+	$body_raw    = wp_remote_retrieve_body( $response );
+	$body        = json_decode( $body_raw, true );
+
+	callback4ringcx_log( 'RingCX Antwort Code: ' . $status_code );
+	callback4ringcx_log( 'RingCX Antwort Body: ' . $body_raw );
+	callback4ringcx_log( '--- Ende Group Lead Senden ---' );
+
+	if ( $status_code < 200 || $status_code >= 300 ) {
+		return new WP_Error(
+			'lead_api_failed',
+			'RingCX hat die Campaign-Lead-Anfrage abgelehnt.',
+			array( 'body' => $body_raw )
+		);
+	}
+
+	return array(
+		'extern_id' => $extern_id,
+		'response'  => $body,
+		'raw_body'  => $body_raw,
+	);
+}
+	/**
+ * Set group callback for an existing lead via MANUAL_LEADS.
+ *
+ * @param string $extern_id   Extern ID of the created lead.
+ * @param int    $campaign_id Selected campaign ID.
+ * @param int    $pass_delay  Delay in minutes from now.
+ * @return array|WP_Error
+ */
+public function set_group_callback( $extern_id, $campaign_id, $pass_delay = 10 ) {
+	$settings = $this->settings->get_settings();
+	$auth     = $this->get_valid_ringcx_token();
+
+	if ( is_wp_error( $auth ) ) {
+		return $auth;
+	}
+
+	$ringcx_access_token = $auth['accessToken'];
+	$ringcx_account_id   = ! empty( $auth['accountId'] ) ? $auth['accountId'] : $settings['account_id'];
+	$campaign_id         = (int) $campaign_id;
+	$pass_delay          = max( 1, (int) $pass_delay );
+
+	if ( empty( $ringcx_account_id ) || empty( $campaign_id ) || empty( $extern_id ) ) {
+		return new WP_Error( 'config_incomplete', 'Group-Callback ist nicht vollständig konfiguriert.' );
+	}
+
+	$payload = array(
+		'campaignLeadSearchCriteria' => array(
+			'externIds'   => array( $extern_id ),
+			'campaignIds' => array( $campaign_id ),
+		),
+		'leadActionParams' => array(
+			'paramMap' => array(
+				'PASS_DISPOSITION' => 'QUEUE_CALLBACK',
+				'REQUEUE'          => true,
+				'DO_NOT_CALL'      => false,
+				'PASS_DELAY'       => $pass_delay,
+				'MERGE_ORIGINAL'   => true,
+			),
+		),
+	);
+
+	$endpoint = trailingslashit( rtrim( $settings['base_url'], '/' ) ) .
+		'admin/accounts/' . rawurlencode( $ringcx_account_id ) .
+		'/campaignLeads/actions?leadAction=MANUAL_LEADS';
+
+	callback4ringcx_log( '--- Setze Group Callback ---' );
+	callback4ringcx_log( 'Group Callback Endpoint URL: ' . $endpoint );
+	callback4ringcx_log( 'Group Callback Payload:' );
+	callback4ringcx_log( $payload );
+
+	$response = wp_remote_request(
+		$endpoint,
+		array(
+			'method'  => 'PUT',
+			'timeout' => 20,
+			'headers' => array(
+				'Authorization' => 'Bearer ' . trim( $ringcx_access_token ),
+				'Content-Type'  => 'application/json',
+				'Accept'        => 'application/json',
+			),
+			'body'    => wp_json_encode( $payload ),
+		)
+	);
+
+	if ( is_wp_error( $response ) ) {
+		callback4ringcx_log( 'Group Callback WP-Error: ' . $response->get_error_message() );
+		return new WP_Error(
+			'group_callback_request_failed',
+			'Lead wurde angelegt, aber der Group-Callback konnte nicht gesetzt werden.'
+		);
+	}
+
+	$status_code = wp_remote_retrieve_response_code( $response );
+	$body_raw    = wp_remote_retrieve_body( $response );
+	$body        = json_decode( $body_raw, true );
+
+	callback4ringcx_log( 'Group Callback Antwort Code: ' . $status_code );
+	callback4ringcx_log( 'Group Callback Antwort Body: ' . $body_raw );
+	callback4ringcx_log( '--- Ende Group Callback ---' );
+
+	if ( $status_code < 200 || $status_code >= 300 ) {
+		return new WP_Error(
+			'group_callback_api_failed',
+			'Lead wurde angelegt, aber RingCX hat den Group-Callback abgelehnt.',
+			array( 'body' => $body_raw )
+		);
+	}
+
+	return array(
+		'response' => $body,
+		'raw_body' => $body_raw,
+	);
+}
+	
+	
+	
     /**
      * Set scheduled agent callback for an existing lead.
      *
