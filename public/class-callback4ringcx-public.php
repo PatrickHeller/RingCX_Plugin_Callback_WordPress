@@ -66,6 +66,7 @@ class CallBack4RingCX_Public {
 				'submitAction'     => 'callback4ringcx_submit',
 				'loadAgentsAction' => 'callback4ringcx_load_agents',
 				'successMessage'   => $settings['success_message'],
+				'loadCampaignsAction' => 'callback4ringcx_load_campaigns',
 			)
 		);
 	}
@@ -138,19 +139,22 @@ class CallBack4RingCX_Public {
 							<label for="callback4ringcx-callback-time"><?php echo esc_html__( 'Wunschzeit', 'callback4ringcx' ); ?></label>
 							<input type="time" id="callback4ringcx-callback-time" name="callback_time" required>
 						</div>
+						
+						
+						
 						<div class="callback4ringcx-field">
-    						<label for="callback4ringcx_target_type">Rückruf durch</label>
-    						<select id="callback4ringcx_target_type" name="callback_target_type">
-        						<option value="agent">Mitarbeiter</option>
-        						<option value="group">Gruppe</option>
-    						</select>
+							<label for="callback4ringcx-target-type"><?php echo esc_html__( 'Rückruf durch', 'callback4ringcx' ); ?></label>
+							<select id="callback4ringcx-target-type" name="callback_target_type">
+								<option value="agent"><?php echo esc_html__( 'Mitarbeiter', 'callback4ringcx' ); ?></option>
+								<option value="group"><?php echo esc_html__( 'Gruppe', 'callback4ringcx' ); ?></option>
+							</select>
 						</div>
 						<div class="callback4ringcx-field">
-							<label for="callback4ringcx-agent-id"><?php echo esc_html__( 'Gewünschter Ansprechpartner', 'callback4ringcx' ); ?></label>
-							<select id="callback4ringcx-agent-id" name="agent_id">
+							<label for="callback4ringcx-target-id" id="callback4ringcx-target-label"><?php echo esc_html__( 'Gewünschter Ansprechpartner', 'callback4ringcx' ); ?></label>
+							<select id="callback4ringcx-target-id" name="callback_target_id">
 								<option value=""><?php echo esc_html__( 'Bitte auswählen', 'callback4ringcx' ); ?></option>
 							</select>
-							<input type="hidden" id="callback4ringcx-agent-name" name="agent_name" value="">
+							<input type="hidden" id="callback4ringcx-target-name" name="callback_target_name" value="">
 						</div>
 
 						<div class="callback4ringcx-field">
