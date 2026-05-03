@@ -63,7 +63,15 @@ class CallBack4RingCX_Ajax {
 				400
 			);
 		}
-
+if ( ! in_array( $data['callback_target_type'], array( 'agent', 'group' ), true ) ) {
+	wp_send_json_error(
+		array(
+			'message' => 'Ungültiger Zieltyp übergeben.',
+		),
+		400
+	);
+}
+		
 		$settings = $this->settings->get_settings();
 
 		if ( empty( $settings['client_id'] ) || empty( $settings['client_secret'] ) || empty( $settings['assertion'] ) || empty( $settings['campaign_id'] ) ) {
@@ -86,34 +94,76 @@ class CallBack4RingCX_Ajax {
 			);
 		}
 
-		$lead_result = $this->api->create_lead( $data );
+		if ( empty( $data['callback_target_id'] ) ) {
+	wp_send_json_error(
+		array(
+			'message' => 'Bitte ein Rückrufziel auswählen.',
+		),
+		400
+	);
+}
 
-		if ( is_wp_error( $lead_result ) ) {
-			wp_send_json_error(
-				array(
-					'message' => $lead_result->get_error_message(),
-					'details' => $lead_result->get_error_data(),
-				),
-				500
-			);
-		}
+if ( 'group' === $data['callback_target_type'] ) {
+	$lead_result = $this->api->create_lead_for_campaign(
+		$data,
+		(int) $data['callback_target_id']
+	);
 
-		if ( empty( $data['agent_id'] ) ) {
-			wp_send_json_error(
-				array(
-					'message'        => 'Lead wurde angelegt, aber es wurde kein Agent ausgewählt.',
-					'ringcx_response' => $lead_result['response'],
-				),
-				400
-			);
-		}
-
-		$callback_result = $this->api->set_scheduled_callback(
-			$lead_result['extern_id'],
-			(int) $data['agent_id'],
-			$callback_date_utc
+	if ( is_wp_error( $lead_result ) ) {
+		wp_send_json_error(
+			array(
+				'message' => $lead_result->get_error_message(),
+				'details' => $lead_result->get_error_data(),
+			),
+			500
 		);
+	}
 
+	$pass_delay = $this->get_pass_delay_minutes(
+		$data['callback_date'],
+		$data['callback_time'],
+		$settings['lead_timezone']
+	);
+
+	if ( is_wp_error( $pass_delay ) ) {
+		wp_send_json_error(
+			array(
+				'message' => $pass_delay->get_error_message(),
+			),
+			400
+		);
+	}
+
+	error_log( 'Berechneter PASS_DELAY: ' . $pass_delay );
+	error_log( 'Callback Date: ' . $data['callback_date'] . ' ' . $data['callback_time'] );
+	error_log( 'Lead Timezone: ' . $settings['lead_timezone'] );
+
+	$callback_result = $this->api->set_group_callback(
+		$lead_result['extern_id'],
+		(int) $data['callback_target_id'],
+		$pass_delay
+	);
+} else {
+	$lead_result = $this->api->create_lead( $data );
+
+	if ( is_wp_error( $lead_result ) ) {
+		wp_send_json_error(
+			array(
+				'message' => $lead_result->get_error_message(),
+				'details' => $lead_result->get_error_data(),
+			),
+			500
+		);
+	}
+
+	$callback_result = $this->api->set_scheduled_callback(
+		$lead_result['extern_id'],
+		(int) $data['callback_target_id'],
+		$callback_date_utc
+	);
+}
+		
+		
 		if ( is_wp_error( $callback_result ) ) {
 			wp_send_json_error(
 				array(
@@ -162,6 +212,32 @@ class CallBack4RingCX_Ajax {
 		);
 	}
 
+	
+	/**
+ 	* Load campaigns for group callback selection.
+	*
+	* @return void
+ 	*/
+	public function load_campaigns() {
+		check_ajax_referer( 'callback4ringcx_submit', 'nonce' );
+	
+		$campaigns = $this->api->get_campaign_options();
+
+		if ( is_wp_error( $campaigns ) ) {
+			wp_send_json_error(
+				array(
+				'message' => $campaigns->get_error_message(),
+				),
+				500
+			);
+		}
+
+		wp_send_json_success(
+			array(
+				'campaigns' => array_values($campaigns),
+			)
+		);
+	}
 	/**
 	 * Get sanitized form data from POST.
 	 *
@@ -174,12 +250,38 @@ class CallBack4RingCX_Ajax {
 			'phone'         => preg_replace( '/[^0-9+]/', '', wp_unslash( $_POST['phone'] ?? '' ) ),
 			'callback_date' => sanitize_text_field( wp_unslash( $_POST['callback_date'] ?? '' ) ),
 			'callback_time' => sanitize_text_field( wp_unslash( $_POST['callback_time'] ?? '' ) ),
-			'agent_id'      => sanitize_text_field( wp_unslash( $_POST['agent_id'] ?? '' ) ),
-			'agent_name'    => sanitize_text_field( wp_unslash( $_POST['agent_name'] ?? '' ) ),
+			'callback_target_type' => sanitize_text_field( wp_unslash( $_POST['callback_target_type'] ?? 'agent' ) ),
+			'callback_target_id'   => absint( $_POST['callback_target_id'] ?? 0 ),
+			'callback_target_name' => sanitize_text_field( wp_unslash( $_POST['callback_target_name'] ?? '' ) ),
 			'note'          => sanitize_textarea_field( wp_unslash( $_POST['note'] ?? '' ) ),
 		);
 	}
 
+	/**
+ * Calculate pass delay in minutes from now until the requested callback datetime.
+ *
+ * @param string $callback_date Local date.
+ * @param string $callback_time Local time.
+ * @param string $lead_timezone Lead timezone.
+ * @return int|WP_Error
+ */
+private function get_pass_delay_minutes( $callback_date, $callback_time, $lead_timezone ) {
+	try {
+		$timezone = new DateTimeZone( $lead_timezone ? $lead_timezone : 'Europe/Berlin' );
+		$now = new DateTimeImmutable( 'now', $timezone );
+		$callback_local = new DateTimeImmutable( $callback_date . ' ' . $callback_time . ':00', $timezone );
+
+		$diff_seconds = $callback_local->getTimestamp() - $now->getTimestamp();
+
+		if ( $diff_seconds <= 0 ) {
+			return new WP_Error( 'invalid_pass_delay', 'Der gewünschte Rückrufzeitpunkt muss in der Zukunft liegen.' );
+		}
+
+		return max( 1, (int) ceil( $diff_seconds / 60 ) );
+	} catch ( Exception $exception ) {
+		return new WP_Error( 'invalid_pass_delay', 'Ungültiges Datum oder Uhrzeit.' );
+	}
+}
 	/**
 	 * Convert local callback date/time into UTC timestamp format for RingCX.
 	 *
