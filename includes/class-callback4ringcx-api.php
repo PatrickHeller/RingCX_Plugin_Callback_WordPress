@@ -513,7 +513,7 @@ public function refresh_ringcx_access_token( $refresh_token ) {
             'timeZoneOption'              => $settings['timezone_option'],
             'phoneNumbersI18nEnabled'     => '1' === $settings['phone_numbers_i18n_enabled'],
             'internationalNumberFormat'   => '1' === $settings['international_number_format'],
-            'numberOriginCountry'         => 'GER',
+            'numberOriginCountry'         => $this->get_number_origin_country( $lead_data['phone'] ),
             'uploadLeads'                 => array(
                 array(
                     'externId'     => $extern_id,
@@ -602,7 +602,7 @@ public function create_lead_for_campaign( $lead_data, $campaign_id ) {
 		'timeZoneOption'            => $settings['timezone_option'],
 		'phoneNumbersI18nEnabled'   => '1' === $settings['phone_numbers_i18n_enabled'],
 		'internationalNumberFormat' => '1' === $settings['international_number_format'],
-		'numberOriginCountry'       => 'GER',
+		'numberOriginCountry'       => $this->get_number_origin_country( $lead_data['phone'] ),
 		'uploadLeads'               => array(
 			array(
 				'externId'  => $extern_id,
@@ -757,7 +757,66 @@ public function set_group_callback( $extern_id, $campaign_id, $pass_delay = 10 )
 		'raw_body' => $body_raw,
 	);
 }
-	
+
+	/**
+ * Ermittelt den passenden RingCX numberOriginCountry Wert aus einer Telefonnummer.
+ *
+ * @param string $phone Telefonnummer aus dem Formular.
+ * @return string
+ */
+private function get_number_origin_country( $phone ) {
+	try {
+		$phone_util = \libphonenumber\PhoneNumberUtil::getInstance();
+		$number     = $phone_util->parse( $phone, 'DE' );
+
+		if ( ! $phone_util->isValidNumber( $number ) ) {
+			return 'GER';
+		}
+
+		$region_code = $phone_util->getRegionCodeForNumber( $number );
+
+		if ( empty( $region_code ) ) {
+			return 'GER';
+		}
+
+		return $this->map_alpha2_to_alpha3( strtoupper( $region_code ) );
+	} catch ( \Throwable $e ) {
+		callback4ringcx_log( 'Phone country detection failed: ' . $e->getMessage() );
+		return 'GER';
+	}
+}
+
+/**
+ * Mappt ISO-3166-1 alpha-2 auf alpha-3.
+ *
+ * @param string $alpha2 Zweistelliger Ländercode.
+ * @return string
+ */
+private function map_alpha2_to_alpha3( $alpha2 ) {
+	$map = array(
+		'DE' => 'GER',
+		'AT' => 'AUT',
+		'CH' => 'CHE',
+		'GB' => 'GBR',
+		'IE' => 'IRL',
+		'FR' => 'FRA',
+		'IT' => 'ITA',
+		'ES' => 'ESP',
+		'NL' => 'NLD',
+		'BE' => 'BEL',
+		'LU' => 'LUX',
+		'PL' => 'POL',
+		'CZ' => 'CZE',
+		'SK' => 'SVK',
+		'HU' => 'HUN',
+		'US' => 'USA',
+		'CA' => 'CAN',
+		'AU' => 'AUS',
+		'NZ' => 'NZL',
+	);
+
+	return $map[ $alpha2 ] ?? 'GER';
+}
 	
 	
     /**
