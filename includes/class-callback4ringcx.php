@@ -54,5 +54,8 @@ class CallBack4RingCX {
 
 		add_action( 'wp_ajax_callback4ringcx_load_agents', array( $ajax, 'load_agents' ) );
 		add_action( 'wp_ajax_nopriv_callback4ringcx_load_agents', array( $ajax, 'load_agents' ) );
+		
+		add_action( 'wp_ajax_callback4ringcx_load_campaigns', array( $ajax, 'load_campaigns' ) );
+		add_action( 'wp_ajax_nopriv_callback4ringcx_load_campaigns', array( $ajax, 'load_campaigns' ) );
 	}
 }
