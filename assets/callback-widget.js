@@ -105,28 +105,71 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+	const loadCampaigns = async () => {
+    if (!targetSelect) {
+        return;
+    }
+
+    targetSelect.innerHTML = '<option value="">Campaigns werden geladen...</option>';
+
+    const formData = new FormData();
+    formData.append('action', callback4ringcxData.loadCampaignsAction);
+    formData.append('nonce', callback4ringcxData.nonce);
+
+    try {
+        const response = await fetch(callback4ringcxData.ajaxUrl, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin'
+        });
+
+        const result = await response.json();
+
+        if (!result.success || !result.data || !Array.isArray(result.data.campaigns)) {
+            targetSelect.innerHTML = '<option value="">Keine Campaigns verfügbar</option>';
+            return;
+        }
+
+        targetSelect.innerHTML = '<option value="">Bitte Campaign auswählen</option>';
+
+        result.data.campaigns.forEach((campaign) => {
+            const option = document.createElement('option');
+            option.value = campaign.id;
+            option.textContent = campaign.dial_group_name
+                ? `${campaign.name} (${campaign.dial_group_name})`
+                : campaign.name;
+            option.dataset.targetName = campaign.name;
+            targetSelect.appendChild(option);
+        });
+    } catch (error) {
+        targetSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+    }
+};
+	
     if (targetTypeSelect) {
         targetTypeSelect.addEventListener('change', () => {
             updateTargetUI();
 
-            if (targetTypeSelect.value === 'agent') {
-                loadAgents();
+            if (targetTypeSelect.value === 'group') {
+                loadCampaigns();
+				return;
             }
+			loadAgents();
         });
     }
 
-    trigger.addEventListener('click', () => {
+  
+	trigger.addEventListener('click', () => {
         openModal();
         updateTargetUI();
 
-        if (
-            targetTypeSelect &&
-            targetTypeSelect.value === 'agent' &&
-            targetSelect &&
-            targetSelect.options.length <= 1
-        ) {
-            loadAgents();
-        }
+        if (targetTypeSelect && targetSelect && targetSelect.options.length <= 1) {
+   			if (targetTypeSelect.value === 'group') {
+       			 loadCampaigns();
+    		} else {
+        		loadAgents();
+    		}
+		}
     });
 
     closeButton.addEventListener('click', () => {
