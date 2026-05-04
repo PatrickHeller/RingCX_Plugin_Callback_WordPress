@@ -177,69 +177,86 @@ public function refresh_ringcx_access_token( $refresh_token ) {
      *
      * @return array|WP_Error
      */
-    public function get_valid_ringcx_token() {
-        $settings = $this->settings->get_settings();
-        $now      = time();
+    public function get_valid_ringcx_token( $persist_settings = true ) {
+    $settings = $this->settings->get_settings();
+    $now      = time();
 
-        if (
-            ! empty( $settings['ringcx_access_token'] ) &&
-            ! empty( $settings['ringcx_token_expires_at'] ) &&
-            $now < (int) $settings['ringcx_token_expires_at'] - 30 &&
-            ! empty( $settings['account_id'] )
-        ) {
+    if (
+        ! empty( $settings['ringcx_access_token'] ) &&
+        ! empty( $settings['ringcx_token_expires_at'] ) &&
+        $now < (int) $settings['ringcx_token_expires_at'] - 30 &&
+        ! empty( $settings['account_id'] )
+    ) {
+        return array(
+            'accessToken'  => $settings['ringcx_access_token'],
+            'refreshToken' => $settings['ringcx_refresh_token'] ?? '',
+            'accountId'    => $settings['account_id'],
+            'expiresAt'    => (int) $settings['ringcx_token_expires_at'],
+        );
+    }
+
+    if ( ! empty( $settings['ringcx_refresh_token'] ) ) {
+        $refresh = $this->refresh_ringcx_access_token( $settings['ringcx_refresh_token'] );
+
+        if ( ! is_wp_error( $refresh ) ) {
+            $settings['ringcx_access_token']     = $refresh['accessToken'];
+            $settings['ringcx_refresh_token']    = ! empty( $refresh['refreshToken'] ) ? $refresh['refreshToken'] : $settings['ringcx_refresh_token'];
+            $settings['ringcx_token_expires_at'] = time() + 240;
+
+            $account_id = $this->extract_account_id( $refresh );
+            if ( '' !== $account_id ) {
+                $settings['account_id'] = $account_id;
+            }
+
+            if ( $persist_settings ) {
+                $this->settings->save_settings( $settings );
+            }
+
             return array(
-                'accessToken' => $settings['ringcx_access_token'],
-                'accountId'   => $settings['account_id'],
+                'accessToken'  => $settings['ringcx_access_token'],
+                'refreshToken' => $settings['ringcx_refresh_token'],
+                'accountId'    => $settings['account_id'] ?? '',
+                'expiresAt'    => (int) $settings['ringcx_token_expires_at'],
             );
         }
+    }
 
-        if ( ! empty( $settings['ringcx_refresh_token'] ) ) {
-            $refresh = $this->refresh_ringcx_access_token( $settings['ringcx_refresh_token'] );
+    $rc_token_response = $this->get_ringcentral_access_token(
+        $settings['client_id'],
+        $settings['client_secret'],
+        $settings['assertion']
+    );
 
-            if ( ! is_wp_error( $refresh ) ) {
-                $settings['ringcx_access_token']     = $refresh['accessToken'];
-                $settings['ringcx_refresh_token']    = ! empty( $refresh['refreshToken'] ) ? $refresh['refreshToken'] : $settings['ringcx_refresh_token'];
-                $settings['ringcx_token_expires_at'] = time() + 240;
+    if ( is_wp_error( $rc_token_response ) ) {
+        return $rc_token_response;
+    }
 
-                $account_id = $this->extract_account_id( $refresh );
-                if ( '' !== $account_id ) {
-                    $settings['account_id'] = $account_id;
-                }
+    $ringcx_token_response = $this->get_ringcx_access_token( $rc_token_response['access_token'] );
 
-                $this->settings->save_settings( $settings );
-                return $refresh;
-            }
-        }
-
-        $rc_token_response = $this->get_ringcentral_access_token(
-            $settings['client_id'],
-            $settings['client_secret'],
-            $settings['assertion']
-        );
-
-        if ( is_wp_error( $rc_token_response ) ) {
-            return $rc_token_response;
-        }
-
-        $ringcx_token_response = $this->get_ringcx_access_token( $rc_token_response['access_token'] );
-
-        if ( is_wp_error( $ringcx_token_response ) ) {
-            return $ringcx_token_response;
-        }
-
-        $settings['ringcx_access_token']     = $ringcx_token_response['accessToken'];
-        $settings['ringcx_refresh_token']    = ! empty( $ringcx_token_response['refreshToken'] ) ? $ringcx_token_response['refreshToken'] : '';
-        $settings['ringcx_token_expires_at'] = time() + 240;
-
-        $account_id = $this->extract_account_id( $ringcx_token_response );
-        if ( '' !== $account_id ) {
-            $settings['account_id'] = $account_id;
-        }
-
-        $this->settings->save_settings( $settings );
-
+    if ( is_wp_error( $ringcx_token_response ) ) {
         return $ringcx_token_response;
     }
+
+    $settings['ringcx_access_token']     = $ringcx_token_response['accessToken'];
+    $settings['ringcx_refresh_token']    = ! empty( $ringcx_token_response['refreshToken'] ) ? $ringcx_token_response['refreshToken'] : '';
+    $settings['ringcx_token_expires_at'] = time() + 240;
+
+    $account_id = $this->extract_account_id( $ringcx_token_response );
+    if ( '' !== $account_id ) {
+        $settings['account_id'] = $account_id;
+    }
+
+    if ( $persist_settings ) {
+        $this->settings->save_settings( $settings );
+    }
+
+    return array(
+        'accessToken'  => $settings['ringcx_access_token'],
+        'refreshToken' => $settings['ringcx_refresh_token'],
+        'accountId'    => $settings['account_id'] ?? '',
+        'expiresAt'    => (int) $settings['ringcx_token_expires_at'],
+    );
+}
 
     /**
      * Get available campaigns grouped across dial groups.
