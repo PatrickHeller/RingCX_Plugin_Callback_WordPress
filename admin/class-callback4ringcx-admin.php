@@ -84,7 +84,7 @@ public function sanitize_settings( $input ) {
     $settings['client_id']                   = sanitize_text_field( $settings['client_id'] ?? '' );
     $settings['client_secret']               = sanitize_text_field( $settings['client_secret'] ?? '' );
     $settings['assertion']                   = trim( $settings['assertion'] ?? '' );
-    $settings['account_id']                  = '';
+    $settings['account_id'] 				 = sanitize_text_field( $current['account_id'] ?? '' );
     $settings['campaign_id']                 = sanitize_text_field( $settings['campaign_id'] ?? '' );
     $settings['description']                 = sanitize_text_field( $settings['description'] ?? '' );
     $settings['dial_priority']               = sanitize_text_field( $settings['dial_priority'] ?? 'IMMEDIATE' );
@@ -108,7 +108,7 @@ public function sanitize_settings( $input ) {
         return $settings;
     }
 
-    $auth = $this->api->get_valid_ringcx_token(false);
+    $auth = $this->api->get_valid_ringcx_token( $settings, false);
 
     callback4ringcx_log( 'Sanitize settings auth result:' );
     callback4ringcx_log( $auth );
@@ -128,7 +128,7 @@ public function sanitize_settings( $input ) {
 	$settings['ringcx_refresh_token']    = sanitize_text_field( $auth['refreshToken'] ?? '' );
 	$settings['ringcx_token_expires_at'] = (string) intval( $auth['expiresAt'] ?? 0 );
 	
-    $account_id = $this->api->extract_account_id( $auth );
+    $account_id = sanitize_text_field( $auth['accountId'] ?? '' );
 
     if ( '' === $account_id ) {
         add_settings_error(
