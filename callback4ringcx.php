@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: CallBack4RingCX
+ * Plugin Name: RingCX_Plugin_Callback_WordPress
  * Description: Floating Callback Button für WordPress mit Übergabe an RingCX Voice als Lead/Callback.
- * Version: 1.0.8
+ * Version: 1.2.0
  * Author: Patrick Heller
  * GitHub Plugin URI: https://github.com/PatrickHeller/RingCX_Plugin_Callback_WordPress
  * Primary Branch: main
