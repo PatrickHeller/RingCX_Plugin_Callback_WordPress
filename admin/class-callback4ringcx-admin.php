@@ -108,7 +108,7 @@ public function sanitize_settings( $input ) {
         return $settings;
     }
 
-    $auth = $this->api->get_valid_ringcx_token();
+    $auth = $this->api->get_valid_ringcx_token(false);
 
     callback4ringcx_log( 'Sanitize settings auth result:' );
     callback4ringcx_log( $auth );
@@ -123,7 +123,11 @@ public function sanitize_settings( $input ) {
 
         return $settings;
     }
-
+	
+	$settings['ringcx_access_token']     = sanitize_text_field( $auth['accessToken'] ?? '' );
+	$settings['ringcx_refresh_token']    = sanitize_text_field( $auth['refreshToken'] ?? '' );
+	$settings['ringcx_token_expires_at'] = (string) intval( $auth['expiresAt'] ?? 0 );
+	
     $account_id = $this->api->extract_account_id( $auth );
 
     if ( '' === $account_id ) {
@@ -159,11 +163,10 @@ public function sanitize_settings( $input ) {
         $campaign_options    = array();
         $agent_group_options = array();
 
-        if ( ! empty( $settings['client_id'] ) && ! empty( $settings['client_secret'] ) && ! empty( $settings['assertion'] ) ) {
-            $campaign_options    = $this->api->get_campaign_options();
-            $agent_group_options = $this->api->get_agent_group_options();
-        }
-
+      	if ( ! empty( $settings['account_id'] ) ) {
+    		$campaign_options    = $this->api->get_campaign_options();
+    		$agent_group_options = $this->api->get_agent_group_options();
+		}
 		settings_errors( 'callback4ringcx_messages' );
 
         require CALLBACK4RINGCX_PATH . 'admin/views/settings-page.php';
