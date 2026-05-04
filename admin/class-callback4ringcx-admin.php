@@ -108,7 +108,7 @@ public function sanitize_settings( $input ) {
         return $settings;
     }
 
-    $auth = $this->api->get_valid_ringcx_token();
+    $auth = $this->api->get_valid_ringcx_token(false);
 
     callback4ringcx_log( 'Sanitize settings auth result:' );
     callback4ringcx_log( $auth );
@@ -123,7 +123,11 @@ public function sanitize_settings( $input ) {
 
         return $settings;
     }
-
+	
+	$settings['ringcx_access_token']     = sanitize_text_field( $auth['accessToken'] ?? '' );
+	$settings['ringcx_refresh_token']    = sanitize_text_field( $auth['refreshToken'] ?? '' );
+	$settings['ringcx_token_expires_at'] = (string) intval( $auth['expiresAt'] ?? 0 );
+	
     $account_id = $this->api->extract_account_id( $auth );
 
     if ( '' === $account_id ) {
