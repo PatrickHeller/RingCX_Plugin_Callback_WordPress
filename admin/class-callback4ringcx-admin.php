@@ -163,11 +163,10 @@ public function sanitize_settings( $input ) {
         $campaign_options    = array();
         $agent_group_options = array();
 
-        if ( ! empty( $settings['client_id'] ) && ! empty( $settings['client_secret'] ) && ! empty( $settings['assertion'] ) ) {
-            $campaign_options    = $this->api->get_campaign_options();
-            $agent_group_options = $this->api->get_agent_group_options();
-        }
-
+      	if ( ! empty( $settings['account_id'] ) ) {
+    		$campaign_options    = $this->api->get_campaign_options();
+    		$agent_group_options = $this->api->get_agent_group_options();
+		}
 		settings_errors( 'callback4ringcx_messages' );
 
         require CALLBACK4RINGCX_PATH . 'admin/views/settings-page.php';
