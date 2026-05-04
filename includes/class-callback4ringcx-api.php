@@ -177,8 +177,8 @@ public function refresh_ringcx_access_token( $refresh_token ) {
      *
      * @return array|WP_Error
      */
-    public function get_valid_ringcx_token( $persist_settings = true ) {
-    $settings = $this->settings->get_settings();
+public function get_valid_ringcx_token( $settings_override = null, $persist_settings = true ) {
+    $settings = is_array( $settings_override ) ? $settings_override : $this->settings->get_settings();
     $now      = time();
 
     if (
