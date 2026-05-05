@@ -84,7 +84,7 @@ public function sanitize_settings( $input ) {
     $settings['client_id']                   = sanitize_text_field( $settings['client_id'] ?? '' );
     $settings['client_secret']               = sanitize_text_field( $settings['client_secret'] ?? '' );
     $settings['assertion']                   = trim( $settings['assertion'] ?? '' );
-    $settings['account_id'] = sanitize_text_field( $current['account_id'] ?? '' );
+    $settings['account_id'] 				 = '';
     $settings['campaign_id']                 = sanitize_text_field( $settings['campaign_id'] ?? '' );
     $settings['description']                 = sanitize_text_field( $settings['description'] ?? '' );
     $settings['dial_priority']               = sanitize_text_field( $settings['dial_priority'] ?? 'IMMEDIATE' );
@@ -159,11 +159,10 @@ public function sanitize_settings( $input ) {
         $campaign_options    = array();
         $agent_group_options = array();
 
-        if ( ! empty( $settings['account_id'] ) )
-{
-            $campaign_options    = $this->api->get_campaign_options();
-            $agent_group_options = $this->api->get_agent_group_options();
-        }
+        if ( ! empty( $settings['client_id'] ) && ! empty( $settings['client_secret'] ) && ! empty( $settings['assertion'] ) ) {
+   			 $campaign_options    = $this->api->get_campaign_options();
+    		 $agent_group_options = $this->api->get_agent_group_options();
+			}
 
 		settings_errors( 'callback4ringcx_messages' );
 
