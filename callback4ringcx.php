@@ -30,7 +30,7 @@ if ( ! function_exists( 'callback4ringcx_log' ) ) {
 	}
 }
 
-define( 'CALLBACK4RINGCX_VERSION', '1.0.1' );
+define( 'CALLBACK4RINGCX_VERSION', '1.2.2' );
 define( 'CALLBACK4RINGCX_FILE', __FILE__ );
 define( 'CALLBACK4RINGCX_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CALLBACK4RINGCX_URL', plugin_dir_url( __FILE__ ) );
