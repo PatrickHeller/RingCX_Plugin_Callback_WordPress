@@ -339,5 +339,14 @@ name="<?php echo esc_attr( $option_key ); ?>[privacy_text]"><?php echo esc_texta
 </table>
 
 <?php submit_button(); ?>
+
+    <p>
+    <a
+        href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=callback4ringcx_test_connection' ), 'callback4ringcx_test_connection' ) ); ?>"
+        class="button button-secondary">
+        <?php echo esc_html__( 'Verbindung prüfen / Account ID laden', 'callback4ringcx' ); ?>
+    </a>
+
+    </p>
 </form>
 </div>
