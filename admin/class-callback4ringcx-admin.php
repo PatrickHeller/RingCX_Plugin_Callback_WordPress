@@ -176,8 +176,23 @@ public function sanitize_settings( $input ) {
         exit;
     }
 
-    $settings['account_id'] = $account_id;
-    update_option( $this->settings->get_option_key(), $settings );
+    $updated_settings = $settings;
+
+    $updated_settings['account_id'] = sanitize_text_field( $account_id );
+
+    if ( ! empty( $auth['accessToken'] ) ) {
+        $updated_settings['ringcx_access_token'] = sanitize_text_field( $auth['accessToken'] );
+    }
+
+    if ( isset( $auth['refreshToken'] ) ) {
+        $updated_settings['ringcx_refresh_token'] = sanitize_text_field( $auth['refreshToken'] );
+    }
+
+    if ( isset( $auth['expiresAt'] ) ) {
+        $updated_settings['ringcx_token_expires_at'] = (string) intval( $auth['expiresAt'] );
+    }
+
+    update_option( $this->settings->get_option_key(), $updated_settings );
 
     add_settings_error(
         $notice_key,
@@ -190,6 +205,7 @@ public function sanitize_settings( $input ) {
     wp_safe_redirect( admin_url( 'options-general.php?page=callback4ringcx' ) );
     exit;
 }
+	
     /**
      * Render settings page.
      *
