@@ -83,10 +83,21 @@ class CallBack4RingCX_API {
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
 
         if ( $code < 200 || $code >= 300 || empty( $body['access_token'] ) ) {
-            callback4ringcx_log( 'RingCentral Access Token konnte nicht geholt werden.' );
-            callback4ringcx_log( $body );
-            return new WP_Error( 'rc_auth_failed', 'RingCentral Access Token konnte nicht geholt werden.' );
-        }
+    	$message = 'RingCentral Access Token konnte nicht geholt werden.';
+
+    		if ( ! empty( $body['error_description'] ) ) {
+        		$message .= ' ' . sanitize_text_field( $body['error_description'] );
+    		} elseif ( ! empty( $body['message'] ) ) {
+        		$message .= ' ' . sanitize_text_field( $body['message'] );
+    		} elseif ( ! empty( $body['error'] ) ) {
+        		$message .= ' ' . sanitize_text_field( $body['error'] );
+    		}
+
+    	callback4ringcx_log( 'RingCentral token HTTP code: ' . $code );
+    	callback4ringcx_log( $body );
+
+    	return new WP_Error( 'rc_auth_failed', $message );
+		}
 
         return $body;
     }
