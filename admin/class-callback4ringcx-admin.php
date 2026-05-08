@@ -155,18 +155,26 @@ public function sanitize_settings( $input ) {
      *
      * @return void
      */
+	
     public function settings_page() {
-        $settings            = $this->settings->get_settings();
-        $campaign_options    = array();
-        $agent_group_options = array();
+    $settings            = $this->settings->get_settings();
+    $campaign_options    = array();
+    $agent_group_options = array();
 
-        if ( ! empty( $settings['client_id'] ) && ! empty( $settings['client_secret'] ) && ! empty( $settings['assertion'] ) ) {
-   			 $campaign_options    = $this->api->get_campaign_options();
-    		 $agent_group_options = $this->api->get_agent_group_options();
-			}
+    $is_settings_update = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-updated'];
 
-		settings_errors( 'callback4ringcx_messages' );
-
-        require CALLBACK4RINGCX_PATH . 'admin/views/settings-page.php';
+    if (
+        ! $is_settings_update &&
+        ! empty( $settings['client_id'] ) &&
+        ! empty( $settings['client_secret'] ) &&
+        ! empty( $settings['assertion'] )
+    ) {
+        $campaign_options    = $this->api->get_campaign_options();
+        $agent_group_options = $this->api->get_agent_group_options();
     }
+
+    settings_errors( 'callback4ringcx_messages' );
+
+    require CALLBACK4RINGCX_PATH . 'admin/views/settings-page.php';
+	}
 }
