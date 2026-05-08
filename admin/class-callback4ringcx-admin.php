@@ -34,6 +34,8 @@ class CallBack4RingCX_Admin {
     public function __construct( $settings, $api ) {
         $this->settings = $settings;
         $this->api      = $api;
+		add_action( 'admin_post_callback4ringcx_test_connection', array( $this, 'handle_test_connection' ) );
+		
     }
 
     /**
@@ -89,9 +91,12 @@ public function sanitize_settings( $input ) {
     $settings['button_label']                = sanitize_text_field( $settings['button_label'] ?? '' );
     $settings['success_message']             = sanitize_text_field( $settings['success_message'] ?? '' );
     $settings['base_url']                    = esc_url_raw( $settings['base_url'] ?? '' );
-    $settings['client_id']                   = sanitize_text_field( $settings['client_id'] ?? '' );
-    $settings['client_secret']               = sanitize_text_field( $settings['client_secret'] ?? '' );
-    $settings['assertion']                   = trim( $settings['assertion'] ?? '' );
+    //$settings['client_id']                 = sanitize_text_field( $settings['client_id'] ?? '' );
+    //$settings['client_secret']             = sanitize_text_field( $settings['client_secret'] ?? '' );
+    //$settings['assertion']                 = trim( $settings['assertion'] ?? '' );
+	$settings['client_id']     				 = trim( sanitize_text_field( $settings['client_id'] ?? '' ) );
+    $settings['client_secret'] 				 = trim( sanitize_text_field( $settings['client_secret'] ?? '' ) );
+	$settings['assertion'] 					 = trim( (string) ( $settings['assertion'] ?? '' ) );
     //$settings['account_id'] 				 = '';
 	$settings['account_id'] 				 = sanitize_text_field( $current['account_id'] ?? '' );
     $settings['campaign_id']                 = sanitize_text_field( $settings['campaign_id'] ?? '' );
@@ -113,14 +118,35 @@ public function sanitize_settings( $input ) {
             'Bitte Client ID, Client Secret und Assertion vollständig eintragen.',
             'error'
         );
+    }
 
-        return $settings;
+    return $settings;
+}
+
+	public function handle_test_connection() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_die( esc_html__( 'Keine Berechtigung.', 'callback4ringcx' ) );
+    }
+
+    check_admin_referer( 'callback4ringcx_test_connection' );
+
+    $settings   = $this->settings->get_settings();
+    $notice_key = 'callback4ringcx_messages';
+
+    if ( empty( $settings['client_id'] ) || empty( $settings['client_secret'] ) || empty( $settings['assertion'] ) ) {
+        add_settings_error(
+            $notice_key,
+            'callback4ringcx_missing_credentials',
+            'Bitte zuerst Client ID, Client Secret und Assertion speichern.',
+            'error'
+        );
+
+        set_transient( 'settings_errors', get_settings_errors(), 30 );
+        wp_safe_redirect( admin_url( 'options-general.php?page=callback4ringcx' ) );
+        exit;
     }
 
     $auth = $this->api->get_valid_ringcx_token();
-
-    callback4ringcx_log( 'Sanitize settings auth result:' );
-    callback4ringcx_log( $auth );
 
     if ( is_wp_error( $auth ) ) {
         add_settings_error(
@@ -130,7 +156,9 @@ public function sanitize_settings( $input ) {
             'error'
         );
 
-        return $settings;
+        set_transient( 'settings_errors', get_settings_errors(), 30 );
+        wp_safe_redirect( admin_url( 'options-general.php?page=callback4ringcx' ) );
+        exit;
     }
 
     $account_id = $this->api->extract_account_id( $auth );
@@ -143,10 +171,13 @@ public function sanitize_settings( $input ) {
             'error'
         );
 
-        return $settings;
+        set_transient( 'settings_errors', get_settings_errors(), 30 );
+        wp_safe_redirect( admin_url( 'options-general.php?page=callback4ringcx' ) );
+        exit;
     }
 
     $settings['account_id'] = $account_id;
+    update_option( $this->settings->get_option_key(), $settings );
 
     add_settings_error(
         $notice_key,
@@ -155,9 +186,10 @@ public function sanitize_settings( $input ) {
         'updated'
     );
 
-    return $settings;
+    set_transient( 'settings_errors', get_settings_errors(), 30 );
+    wp_safe_redirect( admin_url( 'options-general.php?page=callback4ringcx' ) );
+    exit;
 }
-
     /**
      * Render settings page.
      *
