@@ -73,9 +73,17 @@ class CallBack4RingCX_Admin {
  * @return array
  */
 public function sanitize_settings( $input ) {
+	static $already_ran = false;
+	
     $current  = $this->settings->get_settings();
     $settings = wp_parse_args( (array) $input, $current );
     $notice_key = 'callback4ringcx_messages';
+
+	if ( $already_ran ) {
+        return $settings;
+    }
+
+    $already_ran = true;
 
     $settings['enabled']                     = ! empty( $input['enabled'] ) ? '1' : '0';
     $settings['button_label']                = sanitize_text_field( $settings['button_label'] ?? '' );
