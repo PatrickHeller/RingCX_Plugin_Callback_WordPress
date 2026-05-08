@@ -338,20 +338,26 @@ name="<?php echo esc_attr( $option_key ); ?>[privacy_text]"><?php echo esc_texta
 </tr>
 </table>
 
-<?php submit_button(); ?>
+<?php wp_nonce_field( 'callback4ringcx_test_connection' ); ?>
 
-    <p>
-    <a
-        href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=callback4ringcx_test_connection' ), 'callback4ringcx_test_connection' ) ); ?>"
-        class="button button-secondary">
-        <?php echo esc_html__( 'Verbindung prüfen / Account ID laden', 'callback4ringcx' ); ?>
-    </a>
+<div style="display:flex; gap:10px; align-items:center;">
+    <?php submit_button( 'Änderungen speichern', 'primary', 'submit', false ); ?>
 
-    </p>
+    <button
+        type="submit"
+        name="callback4ringcx_test_connection_submit"
+        class="button button-secondary"
+        formaction="<?php echo esc_url( admin_url( 'admin-post.php?action=callback4ringcx_test_connection' ) ); ?>"
+        formmethod="post">
+        <?php echo esc_html__( 'Speichern + Verbindung prüfen', 'callback4ringcx' ); ?>
+    </button>
+</div>
 
-    <p class="description">
-    Bitte zuerst die Änderungen speichern und danach die Verbindung prüfen.
+<p class="description">
+    <?php echo esc_html__( 'Dieser Button speichert zuerst alle aktuellen Einstellungen und prüft danach die Verbindung.', 'callback4ringcx' ); ?>
 </p>
+
+    
     
 </form>
 </div>
