@@ -348,5 +348,10 @@ name="<?php echo esc_attr( $option_key ); ?>[privacy_text]"><?php echo esc_texta
     </a>
 
     </p>
+
+    <p class="description">
+    Bitte zuerst die Änderungen speichern und danach die Verbindung prüfen.
+</p>
+    
 </form>
 </div>
