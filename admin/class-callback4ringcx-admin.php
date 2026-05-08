@@ -181,7 +181,7 @@ public function sanitize_settings( $input ) {
         $agent_group_options = $this->api->get_agent_group_options();
     }
 
-    settings_errors( 'callback4ringcx_messages' );
+    //settings_errors( 'callback4ringcx_messages' );
 
     require CALLBACK4RINGCX_PATH . 'admin/views/settings-page.php';
 	}
